@@ -37,12 +37,19 @@ export class AuthService {
           ));
       }
 
-      const existingEmail = await this.prisma.user.findUnique({
+      const existingUser = await this.prisma.user.findUnique({
         where: { email: createUserDto.email },
       });
 
-      if (existingEmail) {
-        throw new ConflictException('Email already exists');
+      if (existingUser) {
+        if (existingUser.isTwoFactorVerified) {
+          throw new ConflictException('Email already exists');
+        } else {
+          throw new BadRequestException({
+            message: 'Please verify your 2FA',
+            userId: existingUser.id,
+          });
+        }
       }
 
       const user = await this.prisma.user.create({
@@ -64,10 +71,15 @@ export class AuthService {
         await this.mailService.welcomeEmail(user.email, user.userName);
         await this.mailService.send2FASetupEmail(user.email, qrCodeUrl);
       }
-      console.log("Usuario creado:", { id: user.id, userName: user.userName, email: user.email });
+      console.log('Usuario creado:', {
+        id: user.id,
+        userName: user.userName,
+        email: user.email,
+      });
+
       return { id: user.id, userName: user.userName, email: user.email };
     } catch (error) {
-      throw error instanceof ConflictException
+      throw error instanceof ConflictException || BadRequestException
         ? error
         : new InternalServerErrorException('An unknown error occurred');
     }
@@ -123,9 +135,10 @@ export class AuthService {
         }
 
         if (!user.isTwoFactorVerified) {
-          throw new BadRequestException(
-            'Please verify your 2FA before logging in',
-          );
+          throw new BadRequestException({
+            message: 'Please verify your 2FA before logging in',
+            userId: user.id,
+          });
         }
       } else if (loginDto.authMethod === 'google') {
         if (!user) {
@@ -133,9 +146,10 @@ export class AuthService {
         }
 
         if (!user.isTwoFactorVerified) {
-          throw new BadRequestException(
-            'Please verify your 2FA before logging in',
-          );
+          throw new BadRequestException({
+            message: 'Please verify your 2FA before logging in',
+            userId: user.id,
+          });
         }
       }
 
@@ -149,6 +163,7 @@ export class AuthService {
           expiresAt: new Date(Date.now() + 3600000),
         },
       });
+
       console.log('Login successful', token);
 
       return { message: 'Login successful', accessToken: token };
