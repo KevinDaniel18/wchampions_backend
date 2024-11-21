@@ -18,11 +18,24 @@ model User {
   userName            String?
   email               String     @unique
   password            String?
+  gender              String?
+  age                 Int?
+  weight              Int?
+  height              Int?
+  goals               Goal[]
   twoFactorSecret     String?
   isTwoFactorVerified Boolean
+  hasCompletedSetup   Boolean    @default(false)
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt
   Sessions            Sessions[]
+}
+
+model Goal {
+  id     Int    @id @default(autoincrement())
+  meta   String
+  userId Int
+  user   User   @relation(fields: [userId], references: [id])
 }
 
 model Sessions {

@@ -6,13 +6,16 @@ import { AuthService } from './auth.service';
 import { TwoFactorAuthService } from './two-factor-auth.service';
 import { EncryptionService } from 'src/encryption/encryption.service';
 import { MailService } from 'src/mail/mail.service';
+import { JwtStrategy } from 'src/guards/jwt.strategy';
+import { PassportModule } from '@nestjs/passport';
 
 @Module({
   imports: [
     PrismaModule,
+    PassportModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET,
-      signOptions: { expiresIn: '60m' },
+      signOptions: { expiresIn: '1d' },
     }),
   ],
   controllers: [AuthController],
@@ -21,6 +24,7 @@ import { MailService } from 'src/mail/mail.service';
     MailService,
     EncryptionService,
     TwoFactorAuthService,
+    JwtStrategy,
   ],
 })
 export class AuthModule {}

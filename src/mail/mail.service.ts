@@ -64,4 +64,5 @@ export class MailService {
     };
     await this.transporter.sendMail(mailOptions);
   }
+
 }

@@ -14,6 +14,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { LoginDto } from './dto/login.dto';
 import { Verify2faDto } from './dto/verify-2fa.dto';
 import { EncryptionService } from 'src/encryption/encryption.service';
+import { SetupDto } from './dto/setup.dto';
 
 @Injectable()
 export class AuthService {
@@ -117,6 +118,46 @@ export class AuthService {
     }
   }
 
+  async markSetupAsComplete(userId: number, setupDto: SetupDto): Promise<void> {
+    try {
+      const { gender, age, weight, height, goals } = setupDto;
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          hasCompletedSetup: true,
+          gender: gender,
+          age: age,
+          weight: weight,
+          height: height,
+        },
+      });
+
+      if (goals && goals.length > 0) {
+        const goalData = goals.map((goal) => ({
+          meta: goal.meta,
+          userId: userId,
+        }));
+        await this.prisma.goal.createMany({
+          data: goalData,
+        });
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async isSetupCompleted(userId: number) {
+    if (!userId) {
+      throw new Error('userId no proporcionado o es inválido');
+    }
+    try {
+      const user = await this.prisma.user.findUnique({ where: { id: userId } });
+      return { hasCompletedSetup: user?.hasCompletedSetup };
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
   async login(loginDto: LoginDto) {
     try {
       const user = await this.prisma.user.findUnique({
@@ -131,7 +172,7 @@ export class AuthService {
             user.password,
           ))
         ) {
-          throw new BadRequestException('Invalid credentials');
+          throw new NotFoundException('User not found');
         }
 
         if (!user.isTwoFactorVerified) {
@@ -142,7 +183,7 @@ export class AuthService {
         }
       } else if (loginDto.authMethod === 'google') {
         if (!user) {
-          throw new BadRequestException('User not found');
+          throw new NotFoundException('User not found');
         }
 
         if (!user.isTwoFactorVerified) {
@@ -168,7 +209,7 @@ export class AuthService {
 
       return { message: 'Login successful', accessToken: token };
     } catch (error) {
-      throw error instanceof BadRequestException
+      throw error instanceof BadRequestException || NotFoundException
         ? error
         : new InternalServerErrorException('An unknown error occurred');
     }
